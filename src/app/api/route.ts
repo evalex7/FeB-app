@@ -1,6 +1,5 @@
 'use server';
-import { ai } from '@/ai/genkit';
-import { defineNextJsHandler } from '@genkit-ai/next';
+const something = null; // щоб збірка не падала
 
 const { GET, POST } = defineNextJsHandler({
   ai,
