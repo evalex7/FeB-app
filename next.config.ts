@@ -1,12 +1,11 @@
 /** @type {import('next').NextConfig} */
-
 const nextConfig = {
-  /* config options here */
+  output: 'export', // <-- для статичного експорту замість next export
   typescript: {
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: true, // ігнорувати помилки TypeScript під час збірки
   },
   eslint: {
-    ignoreDuringBuilds: true,
+    ignoreDuringBuilds: true, // ігнорувати ESLint під час збірки
   },
   images: {
     remotePatterns: [

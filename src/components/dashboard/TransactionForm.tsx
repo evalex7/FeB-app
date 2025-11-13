@@ -22,6 +22,8 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
+  DialogFooter,
+  DialogClose,
   DialogTrigger,
 } from '@/components/ui/dialog';
 import { Calendar as CalendarIcon, PlusCircle, Pencil, Calculator, Copy, Lock, Unlock } from 'lucide-react';
@@ -37,6 +39,7 @@ import { useCategories } from '@/contexts/categories-context';
 import { Timestamp } from 'firebase/firestore';
 import ReceiptCalculator from './ReceiptCalculator';
 import { Switch } from '../ui/switch';
+import { useIsMobile } from '@/hooks/use-mobile';
 
 type TransactionFormProps = {
   transaction?: Transaction;
@@ -54,6 +57,7 @@ export default function TransactionForm({
   const { addTransaction, updateTransaction } = useTransactions();
   const { categories: availableCategories } = useCategories();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
 
   const [type, setType] = useState<Transaction['type']>('expense');
   const [date, setDate] = useState<Date | undefined>(new Date());
@@ -175,6 +179,21 @@ export default function TransactionForm({
       </>
     );
   };
+  
+  const DateButton = () => (
+    <Button
+        variant={'outline'}
+        type="button"
+        className={cn(
+            'w-full justify-start text-left font-normal',
+            !date && 'text-muted-foreground'
+        )}
+        >
+        <CalendarIcon className="mr-2 h-4 w-4" />
+        {date ? format(date, 'PPP', { locale: uk }) : <span>Оберіть дату</span>}
+    </Button>
+  );
+
 
   return (
     <form onSubmit={handleSubmit}>
@@ -242,35 +261,74 @@ export default function TransactionForm({
 
           <div className="grid gap-2">
             <Label htmlFor="date">Дата</Label>
-            <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  type="button"
-                  className={cn(
-                    'w-full justify-start text-left font-normal',
-                    !date && 'text-muted-foreground'
-                  )}
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {date
-                    ? format(date, 'PPP', { locale: uk })
-                    : 'Оберіть дату'}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
-                <Calendar
-                  mode="single"
-                  selected={date}
-                  onSelect={(selectedDate) => {
-                    setDate(selectedDate);
-                    setIsCalendarOpen(false);
-                  }}
-                  initialFocus
-                  locale={uk}
-                />
-              </PopoverContent>
-            </Popover>
+            {isMobile === true && (
+                <Dialog open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                    <DialogTrigger asChild>
+                        <Button
+                            variant={'outline'}
+                            type="button"
+                            onClick={() => setIsCalendarOpen(true)}
+                            className={cn(
+                                'w-full justify-start text-left font-normal',
+                                !date && 'text-muted-foreground'
+                            )}
+                        >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {date ? format(date, 'PPP', { locale: uk }) : <span>Оберіть дату</span>}
+                        </Button>
+                    </DialogTrigger>
+                    <DialogContent className="p-0 w-auto" showCloseButton={false}>
+                       <DialogHeader className="hidden">
+                           <DialogTitle>Оберіть дату</DialogTitle>
+                       </DialogHeader>
+                        <div className="flex justify-center pt-8">
+                            <Calendar
+                                mode="single"
+                                selected={date}
+                                onSelect={(selectedDate) => {
+                                    setDate(selectedDate);
+                                }}
+                                initialFocus
+                                locale={uk}
+                            />
+                        </div>
+                        <DialogFooter className="p-4 pt-0">
+                           <DialogClose asChild>
+                                <Button type="button" className="w-full">Готово</Button>
+                           </DialogClose>
+                        </DialogFooter>
+                    </DialogContent>
+                </Dialog>
+            )}
+            {isMobile === false && (
+                <Popover open={isCalendarOpen} onOpenChange={setIsCalendarOpen}>
+                    <PopoverTrigger asChild>
+                         <Button
+                            variant={'outline'}
+                            type="button"
+                            className={cn(
+                                'w-full justify-start text-left font-normal',
+                                !date && 'text-muted-foreground'
+                            )}
+                        >
+                            <CalendarIcon className="mr-2 h-4 w-4" />
+                            {date ? format(date, 'PPP', { locale: uk }) : <span>Оберіть дату</span>}
+                        </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0">
+                        <Calendar
+                            mode="single"
+                            selected={date}
+                            onSelect={(selectedDate) => {
+                                setDate(selectedDate);
+                                setIsCalendarOpen(false);
+                            }}
+                            initialFocus
+                            locale={uk}
+                        />
+                    </PopoverContent>
+                </Popover>
+            )}
           </div>
         </div>
 
