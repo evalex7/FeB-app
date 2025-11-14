@@ -1,34 +1,39 @@
-/** @type {import('next').NextConfig} */
-const nextConfig = {
-  output: 'export', // <-- для статичного експорту замість next export
+import withPWA from 'next-pwa';
+import { join } from 'path';
+import type { NextConfig } from 'next';
+
+const nextConfig: NextConfig = {
   typescript: {
-    ignoreBuildErrors: true, // ігнорувати помилки TypeScript під час збірки
+    ignoreBuildErrors: true,
   },
   eslint: {
-    ignoreDuringBuilds: true, // ігнорувати ESLint під час збірки
+    ignoreDuringBuilds: true,
   },
   images: {
     remotePatterns: [
       {
         protocol: 'https',
         hostname: 'placehold.co',
-        port: '',
         pathname: '/**',
       },
       {
         protocol: 'https',
         hostname: 'images.unsplash.com',
-        port: '',
         pathname: '/**',
       },
       {
         protocol: 'https',
         hostname: 'picsum.photos',
-        port: '',
         pathname: '/**',
       },
     ],
   },
 };
 
-export default nextConfig;
+export default withPWA({
+  dest: 'public',
+  register: true,
+  skipWaiting: true,
+  disable: process.env.NODE_ENV === 'development',
+  // next-pwa більше не використовує output: 'export'
+})(nextConfig);

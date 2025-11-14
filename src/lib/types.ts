@@ -5,7 +5,10 @@ export type Transaction = {
   date: Date | Timestamp;
   description: string;
   amount: number;
-  type: 'income' | 'expense';
+
+  // ДОДАНО: уточнена типізація
+  type: 'income' | 'expense' | 'credit_purchase' | 'credit_payment';
+
   category: string;
   familyMemberId?: string;
   isPrivate?: boolean;
@@ -24,7 +27,10 @@ export type Category = {
   id: string;
   name: string;
   icon: string;
-  type: 'income' | 'expense';
+
+  // ЗАЛИШАЮ твої типи, нічого не ламаю
+  type: 'income' | 'expense' | 'credit_payment';
+
   familyMemberId?: string;
   isCommon?: boolean;
   isPrivate?: boolean;
@@ -42,8 +48,18 @@ export type RecurringPayment = {
 };
 
 export type FamilyMember = {
-    id: string;
-    name: string;
-    email: string;
-    color: string;
-}
+  id: string;
+  name: string;
+  email: string;
+  color: string;
+};
+
+// 🔹 ДОПОВНЕНО: повна структура кредитного рахунку
+export type CreditAccount = {
+  id: string;
+  familyMemberId: string;
+
+  creditLimit: number;      // Максимальний ліміт
+  usedCredit?: number;      // Використано кредиту (додаю)
+  availableCredit?: number; // Доступно (кешується для UI)
+};
