@@ -48,8 +48,10 @@ const menuItems = [
 
 export default function AppLayout({
   children,
+  pageTitle
 }: {
   children: React.ReactNode;
+  pageTitle: string;
 }) {
   const pathname = usePathname();
   const isMobile = useIsMobile();
@@ -211,7 +213,7 @@ export default function AppLayout({
           "md:hidden fixed bottom-0 left-0 z-50 w-full h-16 bg-background border-t transition-transform duration-300",
           isHeaderVisible ? "translate-y-0" : "translate-y-full"
       )}>
-        <div className="grid h-full grid-cols-4 mx-auto font-medium">
+        <div className="grid h-full grid-cols-5 mx-auto font-medium">
           {menuItems.map((item) => (
             <Link
               key={item.href}
@@ -225,6 +227,16 @@ export default function AppLayout({
               <span className="text-xs">{item.label}</span>
             </Link>
           ))}
+          <button
+              onClick={handleSettingsToggle}
+              className={cn(
+                "inline-flex flex-col items-center justify-center px-2 hover:bg-muted group",
+                pathname === '/settings' || pathname === '/profile' ? "text-primary" : "text-muted-foreground"
+              )}
+            >
+              <Settings className="w-5 h-5 mb-1" />
+              <span className="text-xs">Налаштув.</span>
+            </button>
         </div>
       </div>
     );
@@ -245,7 +257,7 @@ export default function AppLayout({
         <SheetContent side="left" className="flex flex-col">
           <nav className="grid gap-2 text-lg font-medium">
             <Link
-              href="#"
+              href="/dashboard"
               className="flex items-center gap-2 text-lg font-semibold mb-4"
             >
               <Logo className="h-6 w-6" />
@@ -376,5 +388,3 @@ export default function AppLayout({
     </div>
   );
 }
-
-    
