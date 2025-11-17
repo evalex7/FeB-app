@@ -130,8 +130,8 @@ export default function AppLayout({
   };
   
   const handleSettingsToggle = () => {
-    if (pathname === '/settings') {
-      router.back();
+    if (pathname === '/settings' || pathname === '/profile') {
+      router.push('/dashboard');
     } else {
       router.push('/settings');
     }
@@ -230,6 +230,74 @@ export default function AppLayout({
     );
   };
 
+  const MobileNavMenu = () => (
+     <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
+        <SheetTrigger asChild>
+          <Button
+            variant="outline"
+            size="icon"
+            className="shrink-0 md:hidden"
+          >
+            <Menu className="h-5 w-5" />
+            <span className="sr-only">Toggle navigation menu</span>
+          </Button>
+        </SheetTrigger>
+        <SheetContent side="left" className="flex flex-col">
+          <nav className="grid gap-2 text-lg font-medium">
+            <Link
+              href="#"
+              className="flex items-center gap-2 text-lg font-semibold mb-4"
+            >
+              <Logo className="h-6 w-6" />
+              <span>Сімейні фінанси</span>
+            </Link>
+            {menuItems.map(item => (
+                 <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setIsMobileSheetOpen(false)}
+                    className={cn(
+                        "flex items-center gap-4 rounded-xl px-3 py-2",
+                        getIsActive(item.href) ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
+                    )}
+                    >
+                    <item.icon className="h-5 w-5" />
+                    {item.label}
+                </Link>
+            ))}
+          </nav>
+          <div className="mt-auto">
+             <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="w-full justify-start gap-2 h-12">
+                   <UserAvatar />
+                   <div className="text-left">
+                       <p className="font-medium">{familyMember?.name || 'User'}</p>
+                       <p className="text-xs text-muted-foreground">{familyMember?.email}</p>
+                   </div>
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent className="w-56" align="end" forceMount>
+                <DropdownMenuItem onClick={() => { router.push('/profile'); setIsMobileSheetOpen(false); }}>
+                  <UserIcon className="mr-2 h-4 w-4" />
+                  <span>Профіль</span>
+                </DropdownMenuItem>
+                 <DropdownMenuItem onClick={() => { router.push('/settings'); setIsMobileSheetOpen(false); }}>
+                  <Settings className="mr-2 h-4 w-4" />
+                  <span>Налаштування</span>
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>Вийти</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </SheetContent>
+      </Sheet>
+  );
+
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
         <header className={cn(
@@ -237,11 +305,16 @@ export default function AppLayout({
           isMobile && !isHeaderVisible && "-translate-y-full"
         )}>
            <div className="flex items-center gap-2">
-               <Button variant="ghost" size="icon" onClick={handleSettingsToggle}>
-                <Menu className="h-5 w-5" />
-                <span className="sr-only">Відкрити/закрити налаштування</span>
-              </Button>
-              <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
+               <div className="md:hidden">
+                <MobileNavMenu />
+               </div>
+               <div className="hidden md:flex">
+                 <Button variant="ghost" size="icon" onClick={handleSettingsToggle}>
+                    <Settings className="h-5 w-5" />
+                    <span className="sr-only">Відкрити налаштування</span>
+                </Button>
+               </div>
+              <Link href="/dashboard" className="hidden md:flex items-center gap-2 font-semibold">
                 <Logo className="h-6 w-6" />
                 <span className={cn("text-lg", isMobile && "hidden sm:inline")}>Сімейні фінанси</span>
               </Link>
@@ -257,7 +330,7 @@ export default function AppLayout({
                 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                     <Button variant="ghost" size="icon" className="rounded-full h-10 w-10">
+                     <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 hidden md:flex">
                       <UserAvatar />
                     </Button>
                   </DropdownMenuTrigger>
@@ -268,6 +341,10 @@ export default function AppLayout({
                      <DropdownMenuSeparator />
                      <SettingsForm />
                     <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => router.push('/settings')} >
+                        <Settings className="mr-2 h-4 w-4" />
+                        <span>Більше налаштувань</span>
+                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleLogout} className="focus:bg-destructive/80 focus:text-destructive-foreground">
                       <LogOut className="mr-2 h-4 w-4" />
                       <span>Вийти</span>
@@ -299,3 +376,5 @@ export default function AppLayout({
     </div>
   );
 }
+
+    
