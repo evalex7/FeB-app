@@ -1,4 +1,5 @@
 
+
 'use client';
 
 import {
@@ -52,7 +53,7 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSettings } from '@/contexts/settings-context';
-import { FileWarning } from 'lucide-react';
+import { FileWarning, PieChart as PieChartIcon, BarChartBig } from 'lucide-react';
 
 const formatCurrency = (amount: number) => {
   if (amount >= 1000) {
@@ -116,10 +117,12 @@ export default function ReportsPage() {
 
   const [period, setPeriod] = useState('0');
   const [categoryPeriod, setCategoryPeriod] = useState('all');
+  const [categoryChartType, setCategoryChartType] = useState<'pie' | 'bar'>('pie');
   const [trendPeriod, setTrendPeriod] = useState('daily');
   const [categoryTrendPeriod, setCategoryTrendPeriod] = useState('last_6_months');
   const [activeTooltip, setActiveTooltip] = useState<CustomTooltipPayload | null>(null);
   const [dailyVaseOrientation, setDailyVaseOrientation] = useState<'vertical' | 'horizontal'>('vertical');
+  const [barChartHover, setBarChartHover] = useState<string | null>(null);
 
   const [periodOptions, setPeriodOptions] = useState<{value: string, label: string}[]>([]);
   const [earliestTransactionDate, setEarliestTransactionDate] = useState<Date | null>(null);
@@ -549,10 +552,36 @@ const { dailyVaseData, dailyVaseConfig, dailyBudget, maxDailyValue } = useMemo((
                 <YAxis tickFormatter={formatCurrency} tickLine={false} axisLine={false} tickMargin={8} width={40} fontSize={12} />
                 <ChartTooltip
                   cursor={false}
-                  content={<ChartTooltipContent />}
+                  content={({ active, payload, label }) => {
+                    if (active && payload?.length) {
+                      const data = payload.find(p => p.dataKey === barChartHover);
+                      if (!data) return null;
+        
+                      return (
+                        <div className="grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
+                          <p className="font-medium">{label}</p>
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                              style={{ backgroundColor: data.color }}
+                            />
+                            <div className="flex flex-1 justify-between">
+                              <span className="text-muted-foreground">
+                                {barChartConfig[data.dataKey as keyof typeof barChartConfig]?.label}
+                              </span>
+                              <span className="font-medium">
+                                {formatCurrencyTooltip(data.value as number)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    }
+                    return null;
+                  }}
                 />
-                <Bar dataKey="income" fill="var(--color-income)" radius={4} maxBarSize={60} />
-                <Bar dataKey="expenses" fill="var(--color-expenses)" radius={4} maxBarSize={60} />
+                <Bar dataKey="income" fill="var(--color-income)" radius={4} maxBarSize={60} onMouseOver={() => setBarChartHover('income')} />
+                <Bar dataKey="expenses" fill="var(--color-expenses)" radius={4} maxBarSize={60} onMouseOver={() => setBarChartHover('expenses')} />
                 <ChartLegend content={<ChartLegendContent />} />
             </BarChart>
           </ResponsiveContainer>
@@ -569,7 +598,13 @@ const { dailyVaseData, dailyVaseConfig, dailyBudget, maxDailyValue } = useMemo((
         <CardDescription>
           Розбивка ваших витрат за обраний період.
         </CardDescription>
-        <div className="pt-2 flex flex-wrap gap-2">
+        <div className="pt-2 flex items-center gap-2">
+          <Tabs value={categoryChartType} onValueChange={(value) => setCategoryChartType(value as any)}>
+            <TabsList>
+                <TabsTrigger value="pie" className="px-2 sm:px-3"><PieChartIcon className="h-4 w-4" /></TabsTrigger>
+                <TabsTrigger value="bar" className="px-2 sm:px-3"><BarChartBig className="h-4 w-4" /></TabsTrigger>
+            </TabsList>
+          </Tabs>
           <Select value={categoryPeriod} onValueChange={setCategoryPeriod}>
             <SelectTrigger className="w-full sm:w-[180px]">
               <SelectValue placeholder="Оберіть період" />
@@ -587,7 +622,7 @@ const { dailyVaseData, dailyVaseConfig, dailyBudget, maxDailyValue } = useMemo((
             <div className="text-center text-muted-foreground py-8">
             Немає даних про витрати для відображення.
           </div>
-        ) : (
+        ) : categoryChartType === 'pie' ? (
           <ChartContainer config={pieChartConfig} className="w-full h-[450px] flex flex-col items-center justify-center">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
@@ -653,6 +688,43 @@ const { dailyVaseData, dailyVaseConfig, dailyBudget, maxDailyValue } = useMemo((
               </PieChart>
             </ResponsiveContainer>
           </ChartContainer>
+        ) : (
+            <ChartContainer config={pieChartConfig} className="h-[450px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart
+                        data={[...categoryData].sort((a, b) => a.value - b.value)}
+                        layout="vertical"
+                        margin={{ left: 10, right: 10, top: 10, bottom: 10 }}
+                    >
+                        <XAxis type="number" hide />
+                        <YAxis
+                            dataKey="name"
+                            type="category"
+                            tickLine={false}
+                            axisLine={false}
+                            tickMargin={10}
+                            width={120}
+                            fontSize={12}
+                        />
+                        <ChartTooltip
+                            cursor={false}
+                            content={<ChartTooltipContent formatter={(value, name) => (
+                                <div className="flex items-center gap-2">
+                                <div className="flex flex-1 justify-between">
+                                    <span className="text-muted-foreground">{pieChartConfig[name as keyof typeof pieChartConfig]?.label}</span>
+                                    <span className="font-bold">{formatCurrencyTooltip(value as number)}</span>
+                                </div>
+                                </div>
+                            )} />}
+                        />
+                        <Bar dataKey="value" radius={4}>
+                            {[...categoryData].sort((a, b) => a.value - b.value).map((entry) => (
+                                <Cell key={`cell-bar-${entry.name}`} fill={pieChartConfig[entry.name]?.color} />
+                            ))}
+                        </Bar>
+                    </BarChart>
+                </ResponsiveContainer>
+            </ChartContainer>
         )}
       </CardContent>
     </Card>
