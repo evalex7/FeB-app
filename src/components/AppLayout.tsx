@@ -48,10 +48,8 @@ const menuItems = [
 
 export default function AppLayout({
   children,
-  pageTitle
 }: {
   children: React.ReactNode;
-  pageTitle: string;
 }) {
   const pathname = usePathname();
   const isMobile = useIsMobile();
@@ -132,8 +130,8 @@ export default function AppLayout({
   };
   
   const handleSettingsToggle = () => {
-    if (pathname === '/settings' || pathname === '/profile') {
-      router.push('/dashboard');
+    if (pathname === '/settings') {
+      router.back();
     } else {
       router.push('/settings');
     }
@@ -213,7 +211,7 @@ export default function AppLayout({
           "md:hidden fixed bottom-0 left-0 z-50 w-full h-16 bg-background border-t transition-transform duration-300",
           isHeaderVisible ? "translate-y-0" : "translate-y-full"
       )}>
-        <div className="grid h-full grid-cols-5 mx-auto font-medium">
+        <div className="grid h-full grid-cols-4 mx-auto font-medium">
           {menuItems.map((item) => (
             <Link
               key={item.href}
@@ -227,88 +225,10 @@ export default function AppLayout({
               <span className="text-xs">{item.label}</span>
             </Link>
           ))}
-          <button
-              onClick={handleSettingsToggle}
-              className={cn(
-                "inline-flex flex-col items-center justify-center px-2 hover:bg-muted group",
-                pathname === '/settings' || pathname === '/profile' ? "text-primary" : "text-muted-foreground"
-              )}
-            >
-              <Settings className="w-5 h-5 mb-1" />
-              <span className="text-xs">Налаштув.</span>
-            </button>
         </div>
       </div>
     );
   };
-
-  const MobileNavMenu = () => (
-     <Sheet open={isMobileSheetOpen} onOpenChange={setIsMobileSheetOpen}>
-        <SheetTrigger asChild>
-          <Button
-            variant="outline"
-            size="icon"
-            className="shrink-0 md:hidden"
-          >
-            <Menu className="h-5 w-5" />
-            <span className="sr-only">Toggle navigation menu</span>
-          </Button>
-        </SheetTrigger>
-        <SheetContent side="left" className="flex flex-col">
-          <nav className="grid gap-2 text-lg font-medium">
-            <Link
-              href="/dashboard"
-              className="flex items-center gap-2 text-lg font-semibold mb-4"
-            >
-              <Logo className="h-6 w-6" />
-              <span>Сімейні фінанси</span>
-            </Link>
-            {menuItems.map(item => (
-                 <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={() => setIsMobileSheetOpen(false)}
-                    className={cn(
-                        "flex items-center gap-4 rounded-xl px-3 py-2",
-                        getIsActive(item.href) ? 'bg-muted text-foreground' : 'text-muted-foreground hover:text-foreground'
-                    )}
-                    >
-                    <item.icon className="h-5 w-5" />
-                    {item.label}
-                </Link>
-            ))}
-          </nav>
-          <div className="mt-auto">
-             <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="w-full justify-start gap-2 h-12">
-                   <UserAvatar />
-                   <div className="text-left">
-                       <p className="font-medium">{familyMember?.name || 'User'}</p>
-                       <p className="text-xs text-muted-foreground">{familyMember?.email}</p>
-                   </div>
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent className="w-56" align="end" forceMount>
-                <DropdownMenuItem onClick={() => { router.push('/profile'); setIsMobileSheetOpen(false); }}>
-                  <UserIcon className="mr-2 h-4 w-4" />
-                  <span>Профіль</span>
-                </DropdownMenuItem>
-                 <DropdownMenuItem onClick={() => { router.push('/settings'); setIsMobileSheetOpen(false); }}>
-                  <Settings className="mr-2 h-4 w-4" />
-                  <span>Налаштування</span>
-                </DropdownMenuItem>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout}>
-                  <LogOut className="mr-2 h-4 w-4" />
-                  <span>Вийти</span>
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
-        </SheetContent>
-      </Sheet>
-  );
 
   return (
     <div className="flex min-h-screen w-full flex-col bg-muted/40">
@@ -317,16 +237,11 @@ export default function AppLayout({
           isMobile && !isHeaderVisible && "-translate-y-full"
         )}>
            <div className="flex items-center gap-2">
-               <div className="md:hidden">
-                <MobileNavMenu />
-               </div>
-               <div className="hidden md:flex">
-                 <Button variant="ghost" size="icon" onClick={handleSettingsToggle}>
-                    <Settings className="h-5 w-5" />
-                    <span className="sr-only">Відкрити налаштування</span>
-                </Button>
-               </div>
-              <Link href="/dashboard" className="hidden md:flex items-center gap-2 font-semibold">
+               <Button variant="ghost" size="icon" onClick={handleSettingsToggle}>
+                <Menu className="h-5 w-5" />
+                <span className="sr-only">Відкрити/закрити налаштування</span>
+              </Button>
+              <Link href="/dashboard" className="flex items-center gap-2 font-semibold">
                 <Logo className="h-6 w-6" />
                 <span className={cn("text-lg", isMobile && "hidden sm:inline")}>Сімейні фінанси</span>
               </Link>
@@ -342,7 +257,7 @@ export default function AppLayout({
                 
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
-                     <Button variant="ghost" size="icon" className="rounded-full h-10 w-10 hidden md:flex">
+                     <Button variant="ghost" size="icon" className="rounded-full h-10 w-10">
                       <UserAvatar />
                     </Button>
                   </DropdownMenuTrigger>
@@ -353,10 +268,6 @@ export default function AppLayout({
                      <DropdownMenuSeparator />
                      <SettingsForm />
                     <DropdownMenuSeparator />
-                    <DropdownMenuItem onClick={() => router.push('/settings')} >
-                        <Settings className="mr-2 h-4 w-4" />
-                        <span>Більше налаштувань</span>
-                    </DropdownMenuItem>
                     <DropdownMenuItem onClick={handleLogout} className="focus:bg-destructive/80 focus:text-destructive-foreground">
                       <LogOut className="mr-2 h-4 w-4" />
                       <span>Вийти</span>
