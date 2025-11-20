@@ -6,7 +6,6 @@ import { useTransactions } from '@/contexts/transactions-context';
 import { useState, useEffect } from 'react';
 import { startOfMonth, endOfMonth, parseISO } from 'date-fns';
 import { cn } from '@/lib/utils';
-import { useCredit } from '@/contexts/credit-context';
 
 const formatCurrency = (amount: number) => {
     if (isNaN(amount)) {
@@ -24,21 +23,17 @@ type SummaryCardsProps = {
 
 export default function SummaryCards({ selectedPeriod }: SummaryCardsProps) {
   const { transactions, isLoading: isTransactionsLoading } = useTransactions();
-  const { creditLimit, isLoading: isCreditLoading } = useCredit();
 
   const [formattedIncome, setFormattedIncome] = useState('0,00 ₴');
   const [formattedExpenses, setFormattedExpenses] = useState('0,00 ₴');
   
-  const [ownFunds, setOwnFunds] = useState(0);
   const [formattedOwnFunds, setFormattedOwnFunds] = useState('0,00 ₴');
-
   const [formattedCreditUsed, setFormattedCreditUsed] = useState('0,00 ₴');
   const [formattedCreditLimit, setFormattedCreditLimit] = useState('0,00 ₴');
-
   const [netBalance, setNetBalance] = useState(0);
   const [formattedNetBalance, setFormattedNetBalance] = useState('0,00 ₴');
   
-  const isLoading = isTransactionsLoading || isCreditLoading;
+  const isLoading = isTransactionsLoading;
 
   useEffect(() => {
     if (isLoading) return;
@@ -52,7 +47,7 @@ export default function SummaryCards({ selectedPeriod }: SummaryCardsProps) {
       periodEnd = endOfMonth(periodDate);
     }
 
-    const { income, expenses } = transactions.reduce(
+    const { income, expenses, creditPurchase, creditPayment } = transactions.reduce(
       (acc, transaction) => {
         const transactionDate = transaction.date && (transaction.date as any).toDate ? (transaction.date as any).toDate() : new Date(transaction.date);
         
@@ -66,40 +61,35 @@ export default function SummaryCards({ selectedPeriod }: SummaryCardsProps) {
                 case 'expense':
                     acc.expenses += transaction.amount;
                     break;
+                case 'credit_purchase':
+                    acc.creditPurchase += transaction.amount;
+                    break;
+                case 'credit_payment':
+                    acc.creditPayment += transaction.amount;
+                    break;
             }
         }
         return acc;
       },
-      { income: 0, expenses: 0 }
+      { income: 0, expenses: 0, creditPurchase: 0, creditPayment: 0 }
     );
     
-    const balance = income - expenses;
+    const creditLimit = creditPurchase - creditPayment;
+    const ownFunds = Math.max(0, income - creditLimit - expenses);
+    const creditUsed = Math.max(0, expenses - Math.max(0, income - creditLimit));
+    const totalAvailable = ownFunds + (creditLimit - creditUsed);
     
-    let currentOwnFunds = 0;
-    let usedCredit = 0;
-
-    if (balance >= 0) {
-        currentOwnFunds = balance;
-        usedCredit = 0;
-    } else {
-        currentOwnFunds = 0;
-        usedCredit = Math.abs(balance);
-    }
-    
-    const finalNetBalance = income - (expenses + creditLimit);
-    setNetBalance(finalNetBalance);
-    setFormattedNetBalance(formatCurrency(finalNetBalance));
+    setNetBalance(totalAvailable);
+    setFormattedNetBalance(formatCurrency(totalAvailable));
 
     setFormattedIncome(formatCurrency(income));
     setFormattedExpenses(formatCurrency(expenses));
     
-    setOwnFunds(currentOwnFunds);
-    setFormattedOwnFunds(formatCurrency(currentOwnFunds));
-
-    setFormattedCreditUsed(formatCurrency(usedCredit));
+    setFormattedOwnFunds(formatCurrency(ownFunds));
+    setFormattedCreditUsed(formatCurrency(creditUsed));
     setFormattedCreditLimit(formatCurrency(creditLimit));
 
-  }, [transactions, selectedPeriod, creditLimit, isLoading]);
+  }, [transactions, selectedPeriod, isLoading]);
 
 
   return (
@@ -142,28 +132,24 @@ export default function SummaryCards({ selectedPeriod }: SummaryCardsProps) {
       </Card>
        <Card className="p-2">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-          <CardTitle className="text-xs font-medium h-10 flex items-center">Загальний залишок</CardTitle>
+          <CardTitle className="text-xs font-medium h-10 flex items-center">Власні кошти</CardTitle>
           <Scale className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent className="p-0">
-          <div className={cn(
-            "text-xl font-bold",
-            ownFunds > 0 ? "text-green-600" : "text-foreground",
-            )}
-          >
+          <div className={cn("text-xl font-bold text-green-600")}>
             {formattedOwnFunds}
           </div>
         </CardContent>
       </Card>
       <Card className="p-2">
         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-1">
-          <CardTitle className="text-xs font-medium h-10 flex items-center">Чистий баланс</CardTitle>
+          <CardTitle className="text-xs font-medium h-10 flex items-center">Загальний баланс</CardTitle>
           <Briefcase className="h-4 w-4 text-muted-foreground" />
         </CardHeader>
         <CardContent className="p-0">
           <div className={cn(
             "text-xl font-bold",
-            netBalance > 0 && "text-green-600",
+            netBalance >= 0 && "text-green-600",
             netBalance < 0 && "text-red-600"
             )}
           >
