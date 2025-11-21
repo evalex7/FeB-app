@@ -1,5 +1,3 @@
-
-
 'use client';
 
 import {
@@ -24,6 +22,7 @@ import {
   AreaChart,
   Area,
   ReferenceArea,
+  ComposedChart,
 } from 'recharts';
 import {
   ChartContainer,
@@ -72,10 +71,12 @@ const formatCurrencyTooltip = (amount: number) => {
 };
 
 const barChartConfig = {
-  income: { label: "Дохід", color: "hsl(var(--chart-2))" },
-  expenses: { label: "Витрати", color: "hsl(var(--chart-1))" },
-  value: { label: "Сума" },
+  income: { label: 'Чистий дохід', color: 'hsl(var(--chart-2))' },
+  credit: { label: 'Кредит', color: 'hsl(27, 87%, 67%)' },
+  expenses: { label: 'Витрати', color: 'hsl(var(--chart-1))' },
+  value: { label: 'Сума' },
 } satisfies ChartConfig;
+
 
 const lineChartConfig = {
   income: { label: "Дохід", color: "hsl(var(--chart-2))" },
@@ -158,100 +159,77 @@ export default function ReportsPage() {
 
   const filteredTransactions = transactions;
 
-
   const incomeVsExpenseData = useMemo(() => {
     if (isLoading || filteredTransactions.length === 0) return [];
 
-    const now = new Date();
-    let startDate: Date;
-    let endDate: Date = endOfMonth(now);
-    let label = '';
+    let startDate: Date | null = null;
+    let endDate: Date | null = null;
     
-    const shouldAggregate = ['all', 'last_3_months', 'last_6_months', 'last_12_months'].includes(period);
-
     switch (period) {
         case '0':
-            startDate = startOfMonth(now);
-            endDate = endOfMonth(now);
+            startDate = startOfMonth(new Date());
+            endDate = endOfMonth(new Date());
             break;
         case 'prev_month':
-            const prevMonth = subMonths(now, 1);
+            const prevMonth = subMonths(new Date(), 1);
             startDate = startOfMonth(prevMonth);
             endDate = endOfMonth(prevMonth);
             break;
         case 'last_3_months':
-            startDate = startOfMonth(subMonths(now, 2));
-            label = 'Останні 3 місяці';
+            startDate = startOfMonth(subMonths(new Date(), 2));
+            endDate = endOfMonth(new Date());
             break;
         case 'last_6_months':
-            startDate = startOfMonth(subMonths(now, 5));
-            label = 'Останні 6 місяців';
+            startDate = startOfMonth(subMonths(new Date(), 5));
+            endDate = endOfMonth(new Date());
             break;
         case 'last_12_months':
-            startDate = startOfMonth(subMonths(now, 11));
-            label = 'Останній рік';
+            startDate = startOfMonth(subMonths(new Date(), 11));
+            endDate = endOfMonth(new Date());
             break;
         case 'all':
-            label = 'За весь час';
             if (earliestTransactionDate) {
               startDate = earliestTransactionDate;
-            } else {
-              startDate = new Date(0); // fallback
+              endDate = endOfMonth(new Date());
             }
             break;
         default:
-            startDate = startOfMonth(now);
+            startDate = startOfMonth(new Date());
+            endDate = endOfMonth(new Date());
     }
 
-
-    if (shouldAggregate) {
-      const totals = filteredTransactions
-        .filter(t => {
-            if (period === 'all') return true;
-            const transactionDate = t.date && (t.date as Timestamp).toDate ? (t.date as Timestamp).toDate() : new Date(t.date);
-            return transactionDate >= startDate && transactionDate <= endDate;
-        })
-        .reduce((acc, t) => {
-            if (t.type === 'income') {
-            acc.income += t.amount;
-            } else {
-            acc.expenses += t.amount;
-            }
-            return acc;
-        }, { income: 0, expenses: 0 });
-
-      return [{ month: label, income: totals.income, expenses: totals.expenses }];
-    }
-
-
-    const data: { [key: string]: { month: string, income: number, expenses: number } } = {};
-    
-    filteredTransactions.forEach(t => {
-      const transactionDate = t.date && (t.date as Timestamp).toDate ? (t.date as Timestamp).toDate() : new Date(t.date);
-      
-      if (transactionDate >= startDate && transactionDate <= endDate) {
-          const monthKey = format(transactionDate, 'yyyy-MM');
-          if (!data[monthKey]) {
-            const monthLabel = `${format(transactionDate, 'LLL', {locale: uk})}. ${getYear(transactionDate)}`;
-            data[monthKey] = { month: monthLabel, income: 0, expenses: 0 };
-          }
-          if (t.type === 'income') {
-            data[monthKey].income += t.amount;
-          } else {
-            data[monthKey].expenses += t.amount;
-          }
-      }
+    const transactionsInPeriod = filteredTransactions.filter(t => {
+        if (!startDate || !endDate) return true; // 'all' might not have dates if no transactions exist
+        const transactionDate = t.date instanceof Timestamp ? t.date.toDate() : new Date(t.date);
+        return transactionDate >= startDate && transactionDate <= endDate;
     });
 
-    const monthOrder = (monthStr: string) => {
-        const [monthName, year] = monthStr.split('. ');
-        const monthIndex = ['січ', 'лют', 'бер', 'кві', 'тра', 'чер', 'лип', 'сер', 'вер', 'жов', 'лис', 'гру'].indexOf(monthName);
-        return new Date(parseInt(year), monthIndex).getTime();
-    };
+    const totalIncome = transactionsInPeriod
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0);
+    
+    const credit = transactionsInPeriod
+        .filter(t => t.type === 'credit_purchase')
+        .reduce((sum, t) => sum + t.amount, 0);
 
-    return Object.values(data).sort((a,b) => monthOrder(a.month) - monthOrder(b.month));
+    const expenses = transactionsInPeriod
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + t.amount, 0);
+    
+    const income = totalIncome - credit;
+
+    return [{
+      name: 'Дохід',
+      income: income < 0 ? 0 : income,
+      credit: credit,
+      totalIncome: totalIncome,
+    }, {
+      name: 'Витрати',
+      expenses: expenses,
+    }];
 
   }, [filteredTransactions, period, isLoading, earliestTransactionDate]);
+
   
   const { data: categoryData, config: pieChartConfig } = useMemo(() => {
     if (isLoading) return { data: [], config: {} };
@@ -338,7 +316,7 @@ export default function ReportsPage() {
       }
       if (t.type === 'income') {
         dailyTotals[dayKey].income += t.amount;
-      } else {
+      } else if (t.type === 'expense') {
         dailyTotals[dayKey].expenses += t.amount;
       }
     });
@@ -548,40 +526,60 @@ const { dailyVaseData, dailyVaseConfig, dailyBudget, maxDailyValue } = useMemo((
         <ChartContainer config={barChartConfig} className="h-[400px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart data={incomeVsExpenseData} margin={{ left: 0, right: 16 }}>
-                <XAxis dataKey='month' tickLine={false} axisLine={false} tickMargin={8} fontSize={12} />
+                <CartesianGrid vertical={false} />
+                <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} fontSize={12} interval={0} />
                 <YAxis tickFormatter={formatCurrency} tickLine={false} axisLine={false} tickMargin={8} width={40} fontSize={12} />
                 <ChartTooltip
-                  cursor={false}
-                  content={({ active, payload, label }) => {
-                    if (active && payload?.length) {
-                      const data = payload.find(p => p.dataKey === barChartHover);
-                      if (!data) return null;
-        
-                      return (
-                        <div className="grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
-                          <p className="font-medium">{label}</p>
-                          <div className="flex items-center gap-2">
-                            <div
-                              className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
-                              style={{ backgroundColor: data.color }}
-                            />
-                            <div className="flex flex-1 justify-between">
-                              <span className="text-muted-foreground">
-                                {barChartConfig[data.dataKey as keyof typeof barChartConfig]?.label}
-                              </span>
-                              <span className="font-medium">
-                                {formatCurrencyTooltip(data.value as number)}
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
+                    cursor={false}
+                    content={({ active, payload, label }) => {
+                        if (active && payload?.length) {
+                            const data = payload[0].payload;
+                            
+                            if (label === 'Дохід') {
+                                return (
+                                    <div className="grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
+                                        <p className="font-medium">Загальний дохід: {formatCurrencyTooltip(data.totalIncome)}</p>
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: barChartConfig.income.color }}/>
+                                            <div className="flex flex-1 justify-between">
+                                                <span className="text-muted-foreground">{barChartConfig.income.label}</span>
+                                                <span className="font-medium">{formatCurrencyTooltip(data.income)}</span>
+                                            </div>
+                                        </div>
+                                        {data.credit > 0 && (
+                                            <div className="flex items-center gap-2">
+                                                <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: barChartConfig.credit.color }}/>
+                                                <div className="flex flex-1 justify-between">
+                                                    <span className="text-muted-foreground">{barChartConfig.credit.label}</span>
+                                                    <span className="font-medium">{formatCurrencyTooltip(data.credit)}</span>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                );
+                            }
+                            
+                            if (label === 'Витрати') {
+                                return (
+                                     <div className="grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
+                                        <p className="font-medium">{label}</p>
+                                        <div className="flex items-center gap-2">
+                                            <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: barChartConfig.expenses.color }}/>
+                                            <div className="flex flex-1 justify-between">
+                                                <span className="text-muted-foreground">{barChartConfig.expenses.label}</span>
+                                                <span className="font-medium">{formatCurrencyTooltip(data.expenses)}</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            }
+                        }
+                        return null;
+                    }}
                 />
-                <Bar dataKey="income" fill="var(--color-income)" radius={4} maxBarSize={60} onMouseOver={() => setBarChartHover('income')} />
-                <Bar dataKey="expenses" fill="var(--color-expenses)" radius={4} maxBarSize={60} onMouseOver={() => setBarChartHover('expenses')} />
+                <Bar dataKey="income" fill="var(--color-income)" stackId="a" radius={[4, 4, 0, 0]} maxBarSize={80} />
+                <Bar dataKey="credit" fill="var(--color-credit)" stackId="a" radius={[4, 4, 0, 0]} maxBarSize={80}/>
+                <Bar dataKey="expenses" fill="var(--color-expenses)" radius={[4, 4, 0, 0]} maxBarSize={80} />
                 <ChartLegend content={<ChartLegendContent />} />
             </BarChart>
           </ResponsiveContainer>
@@ -854,7 +852,7 @@ const categoryTrendChart = (
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="last_3_months">Останні 3 місяці</SelectItem>
-              <SelectItem value="last_6_months">Останні 6 місяців</SelectItem>
+              <SelectItem value="last_6_months">Останні 6 місяці</SelectItem>
               <SelectItem value="last_12_months">Останні 12 місяців</SelectItem>
             </SelectContent>
           </Select>
