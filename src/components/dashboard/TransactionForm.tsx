@@ -82,45 +82,6 @@ export default function TransactionForm({
       return uiType;
   }
 
-  useEffect(() => {
-    const valuesToSet = transaction || initialValues;
-    if (valuesToSet) {
-        if (valuesToSet.type === 'credit_purchase' || valuesToSet.type === 'credit_payment') {
-            setUiType('credit');
-            setCreditAction(valuesToSet.type === 'credit_payment' ? 'payment' : 'purchase');
-        } else {
-            setUiType(valuesToSet.type || 'expense');
-        }
-
-      setAmount(String(valuesToSet.amount || ''));
-      setDescription(valuesToSet.description || '');
-      setCategory(valuesToSet.category || '');
-      setIsPrivate(valuesToSet.isPrivate || false);
-
-      let transactionDate;
-      if (valuesToSet.date) {
-        transactionDate =
-          valuesToSet.date instanceof Timestamp
-            ? valuesToSet.date.toDate()
-            : new Date(valuesToSet.date as any);
-      }
-
-      if (isCopy) {
-        setDate(new Date());
-      } else {
-        setDate(transactionDate || new Date());
-      }
-    } else {
-      setUiType('expense');
-      setCreditAction('purchase');
-      setAmount('');
-      setDescription('');
-      setCategory('');
-      setIsPrivate(false);
-      setDate(new Date());
-    }
-  }, [transaction, initialValues, isCopy]);
-  
   const categoryTypeMap: Record<UiTransactionType, 'income' | 'expense' | 'credit'> = {
     income: 'income',
     expense: 'expense',
@@ -130,6 +91,64 @@ export default function TransactionForm({
   const categories = availableCategories
     .filter((c) => c.type === categoryTypeMap[uiType])
     .sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+    
+  // Effect to initialize the form state
+  useEffect(() => {
+    const valuesToSet = transaction || initialValues;
+
+    if (valuesToSet) {
+      // Step 1: Set simple values and determine the UI type
+      let initialUiType: UiTransactionType = 'expense';
+      if (valuesToSet.type === 'credit_purchase' || valuesToSet.type === 'credit_payment') {
+        initialUiType = 'credit';
+        setCreditAction(valuesToSet.type === 'credit_payment' ? 'payment' : 'purchase');
+      } else if (valuesToSet.type) {
+        initialUiType = valuesToSet.type as UiTransactionType; // Ensure type is valid
+      }
+      setUiType(initialUiType);
+
+      setAmount(String(valuesToSet.amount || ''));
+      setDescription(valuesToSet.description || '');
+      setIsPrivate(valuesToSet.isPrivate || false);
+
+      let transactionDate;
+      if (valuesToSet.date) {
+        transactionDate = valuesToSet.date instanceof Timestamp
+            ? valuesToSet.date.toDate()
+            : new Date(valuesToSet.date as any);
+      }
+      setDate(isCopy ? new Date() : transactionDate || new Date());
+      
+      // The category will be set in a separate effect that depends on uiType
+    } else {
+      // Reset form for a completely new transaction
+      setUiType('expense');
+      setCreditAction('purchase');
+      setAmount('');
+      setDescription('');
+      setCategory('');
+      setIsPrivate(false);
+      setDate(new Date());
+    }
+  }, [transaction, initialValues, isCopy]);
+
+  // Effect to set the category *after* the uiType has been established
+  useEffect(() => {
+    const valuesToSet = transaction || initialValues;
+    if (valuesToSet && valuesToSet.category) {
+        // Find the category in the now-filtered list of categories for the current uiType
+        const categoryExists = categories.some(c => c.name === valuesToSet.category);
+        if (categoryExists) {
+            setCategory(valuesToSet.category);
+        } else {
+            setCategory(''); // Reset if the category is not valid for the current type
+        }
+    } else {
+       setCategory(''); // Reset for new transactions
+    }
+  }, [uiType, transaction, initialValues, categories]);
+
+
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -218,7 +237,6 @@ export default function TransactionForm({
               value={uiType}
               onValueChange={(value: UiTransactionType) => {
                 setUiType(value);
-                setCategory(''); // Reset category when type changes
               }}
             >
               <Label className="flex items-center space-x-2 cursor-pointer text-sm sm:text-base">
