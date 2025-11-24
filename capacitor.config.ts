@@ -1,9 +1,9 @@
-import type { CapacitorConfig } from '@capacitor/cli';
+import { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.evalex.febapp',       // твій package ID
-  appName: 'FeB App',                // назва застосунку
-  webDir: 'www',                     // порожня папка, локальні файли не потрібні
+  appId: 'com.evalex.eplan',   // ← Заміни на свій
+  appName: 'E-Plan',
+  webDir: 'out',
   bundledWebRuntime: false
 };
 
