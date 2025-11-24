@@ -73,6 +73,7 @@ export default function SummaryCards({ selectedPeriod }: SummaryCardsProps) {
                     acc.income += transaction.amount;
                     break;
                 case 'expense':
+                case 'credit_purchase':
                     acc.expenses += transaction.amount;
                     break;
             }
