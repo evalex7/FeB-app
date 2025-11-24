@@ -42,7 +42,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
-import { subMonths, startOfMonth, format, getYear, endOfMonth, differenceInMonths, addMonths, subDays, eachDayOfInterval, startOfDay, endOfDay, eachMonthOfInterval, getDaysInMonth } from 'date-fns';
+import { subMonths, startOfMonth, format, getYear, endOfMonth, differenceInMonths, addMonths, subDays, eachDayOfInterval, startOfDay, endOfDay, eachMonthOfInterval, getDaysInMonth, getDate } from 'date-fns';
 import { uk } from 'date-fns/locale';
 import { Timestamp } from 'firebase/firestore';
 import AppLayout from '@/components/AppLayout';
@@ -52,7 +52,8 @@ import { ScrollArea, ScrollBar } from '@/components/ui/scroll-area';
 import { cn } from '@/lib/utils';
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 import { useSettings } from '@/contexts/settings-context';
-import { FileWarning, PieChart as PieChartIcon, BarChartBig } from 'lucide-react';
+import { FileWarning, PieChart as PieChartIcon, BarChartBig, BarChartHorizontal, BarChart2 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 const formatCurrency = (amount: number) => {
   if (amount >= 1000) {
@@ -71,8 +72,7 @@ const formatCurrencyTooltip = (amount: number) => {
 };
 
 const barChartConfig = {
-  income: { label: 'Чистий дохід', color: 'hsl(var(--chart-2))' },
-  credit: { label: 'Кредит', color: 'hsl(27, 87%, 67%)' },
+  income: { label: 'Дохід', color: 'hsl(var(--chart-2))' },
   expenses: { label: 'Витрати', color: 'hsl(var(--chart-1))' },
   value: { label: 'Сума' },
 } satisfies ChartConfig;
@@ -117,7 +117,7 @@ export default function ReportsPage() {
   const chartContainerRef = useRef<HTMLDivElement>(null);
 
   const [period, setPeriod] = useState('0');
-  const [categoryPeriod, setCategoryPeriod] = useState('all');
+  const [categoryPeriod, setCategoryPeriod] = useState('0');
   const [categoryChartType, setCategoryChartType] = useState<'pie' | 'bar'>('pie');
   const [trendPeriod, setTrendPeriod] = useState('daily');
   const [categoryTrendPeriod, setCategoryTrendPeriod] = useState('last_6_months');
@@ -204,25 +204,17 @@ export default function ReportsPage() {
         return transactionDate >= startDate && transactionDate <= endDate;
     });
 
-    const totalIncome = transactionsInPeriod
+    const income = transactionsInPeriod
         .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0);
-    
-    const credit = transactionsInPeriod
-        .filter(t => t.type === 'credit_purchase')
         .reduce((sum, t) => sum + t.amount, 0);
 
     const expenses = transactionsInPeriod
         .filter(t => t.type === 'expense')
         .reduce((sum, t) => sum + t.amount, 0);
-    
-    const income = totalIncome - credit;
 
     return [{
       name: 'Дохід',
-      income: income < 0 ? 0 : income,
-      credit: credit,
-      totalIncome: totalIncome,
+      income: income
     }, {
       name: 'Витрати',
       expenses: expenses,
@@ -424,23 +416,31 @@ const { data: categoryTrendData, config: categoryTrendConfig, categories: catego
     return { data: chartData, config, categories: sortedCategories };
 }, [filteredTransactions, isLoading, isCategoriesLoading, categories, categoryTrendPeriod]);
 
-const { dailyVaseData, dailyVaseConfig, dailyBudget, maxDailyValue } = useMemo(() => {
-    if (isLoading || isCategoriesLoading) return { dailyVaseData: [], dailyVaseConfig: {}, dailyBudget: 0, maxDailyValue: 0 };
+const { dailyVaseData, dailyVaseConfig, dailyBudget, averageDailyExpense, maxDailyValue } = useMemo(() => {
+    if (isLoading || isCategoriesLoading) return { dailyVaseData: [], dailyVaseConfig: {}, dailyBudget: 0, averageDailyExpense: 0, maxDailyValue: 0 };
 
     const now = new Date();
     const startDate = startOfMonth(now);
     const endDate = endOfMonth(now);
     const daysInMonth = eachDayOfInterval({ start: startDate, end: endDate });
     const numDaysInMonth = getDaysInMonth(now);
+    const currentDayOfMonth = getDate(now);
 
-    const totalIncomeThisMonth = transactions
-        .filter(t => {
-            const transactionDate = t.date instanceof Timestamp ? t.date.toDate() : new Date(t.date);
-            return t.type === 'income' && transactionDate >= startDate && transactionDate <= endDate;
-        })
+    const transactionsThisMonth = transactions.filter(t => {
+      const transactionDate = t.date instanceof Timestamp ? t.date.toDate() : new Date(t.date);
+      return transactionDate >= startDate && transactionDate <= endDate;
+    });
+
+    const totalIncomeThisMonth = transactionsThisMonth
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0);
+    
+    const totalExpensesThisMonth = transactionsThisMonth
+        .filter(t => t.type === 'expense')
         .reduce((sum, t) => sum + t.amount, 0);
     
     const dailyBudget = totalIncomeThisMonth > 0 ? totalIncomeThisMonth / numDaysInMonth : 0;
+    const averageDailyExpense = totalExpensesThisMonth > 0 && currentDayOfMonth > 0 ? totalExpensesThisMonth / currentDayOfMonth : 0;
 
     const config: ChartConfig = {};
     const categoryNames = new Set<string>();
@@ -491,9 +491,9 @@ const { dailyVaseData, dailyVaseConfig, dailyBudget, maxDailyValue } = useMemo((
         };
     });
 
-    const maxDailyValue = Math.max(maxTotal, dailyBudget) * 1.1; 
+    const maxDailyValue = Math.max(maxTotal, dailyBudget, averageDailyExpense) * 1.1; 
     
-    return { dailyVaseData: data, dailyVaseConfig: config, dailyBudget, maxDailyValue };
+    return { dailyVaseData: data, dailyVaseConfig: config, dailyBudget, averageDailyExpense, maxDailyValue };
 }, [transactions, isLoading, categories, isCategoriesLoading]);
 
 
@@ -525,61 +525,21 @@ const { dailyVaseData, dailyVaseConfig, dailyBudget, maxDailyValue } = useMemo((
         ) : (
         <ChartContainer config={barChartConfig} className="h-[400px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <BarChart data={incomeVsExpenseData} margin={{ left: 0, right: 16 }}>
+            <BarChart 
+                data={incomeVsExpenseData} 
+                margin={{ left: 0, right: 16 }}
+                barGap={-20}
+                barCategoryGap="5%"
+            >
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} fontSize={12} interval={0} />
                 <YAxis tickFormatter={formatCurrency} tickLine={false} axisLine={false} tickMargin={8} width={40} fontSize={12} />
                 <ChartTooltip
                     cursor={false}
-                    content={({ active, payload, label }) => {
-                        if (active && payload?.length) {
-                            const data = payload[0].payload;
-                            
-                            if (label === 'Дохід') {
-                                return (
-                                    <div className="grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
-                                        <p className="font-medium">Загальний дохід: {formatCurrencyTooltip(data.totalIncome)}</p>
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: barChartConfig.income.color }}/>
-                                            <div className="flex flex-1 justify-between">
-                                                <span className="text-muted-foreground">{barChartConfig.income.label}</span>
-                                                <span className="font-medium">{formatCurrencyTooltip(data.income)}</span>
-                                            </div>
-                                        </div>
-                                        {data.credit > 0 && (
-                                            <div className="flex items-center gap-2">
-                                                <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: barChartConfig.credit.color }}/>
-                                                <div className="flex flex-1 justify-between">
-                                                    <span className="text-muted-foreground">{barChartConfig.credit.label}</span>
-                                                    <span className="font-medium">{formatCurrencyTooltip(data.credit)}</span>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            }
-                            
-                            if (label === 'Витрати') {
-                                return (
-                                     <div className="grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
-                                        <p className="font-medium">{label}</p>
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: barChartConfig.expenses.color }}/>
-                                            <div className="flex flex-1 justify-between">
-                                                <span className="text-muted-foreground">{barChartConfig.expenses.label}</span>
-                                                <span className="font-medium">{formatCurrencyTooltip(data.expenses)}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            }
-                        }
-                        return null;
-                    }}
+                    content={<ChartTooltipContent />}
                 />
-                <Bar dataKey="income" fill="var(--color-income)" stackId="a" radius={[4, 4, 0, 0]} maxBarSize={80} />
-                <Bar dataKey="credit" fill="var(--color-credit)" stackId="a" radius={[4, 4, 0, 0]} maxBarSize={80}/>
-                <Bar dataKey="expenses" fill="var(--color-expenses)" radius={[4, 4, 0, 0]} maxBarSize={80} />
+                <Bar dataKey="income" fill="var(--color-income)" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="expenses" fill="var(--color-expenses)" radius={[4, 4, 0, 0]} />
                 <ChartLegend content={<ChartLegendContent />} />
             </BarChart>
           </ResponsiveContainer>
@@ -906,21 +866,28 @@ const categoryTrendChart = (
 const dailyVaseExpenseChart = (
     <Card>
       <CardHeader>
-        <div className="flex flex-col sm:flex-row justify-between sm:items-center gap-2">
-            <div>
+        <div className="flex flex-col sm:flex-row justify-between sm:items-start gap-2">
+            <div className='flex-1'>
                 <CardTitle>Щоденні витрати</CardTitle>
                 <CardDescription>
                     Аналіз витрат по днях за поточний місяць.
-                    {dailyBudget > 0 && <span> Ваш денний бюджет: <b>{formatCurrencyTooltip(dailyBudget)}</b></span>}
+                    {(dailyBudget > 0 || averageDailyExpense > 0) && (
+                      <span className="block mt-1" dangerouslySetInnerHTML={{
+                          __html: `${dailyBudget > 0 ? `Денний бюджет: <b>${formatCurrencyTooltip(dailyBudget)}</b>` : ''}
+                                   ${dailyBudget > 0 && averageDailyExpense > 0 ? ' | ' : ''}
+                                   ${averageDailyExpense > 0 ? `Середні денні витрати: <b>${formatCurrencyTooltip(averageDailyExpense)}</b>` : ''}`
+                      }} />
+                    )}
                 </CardDescription>
             </div>
-             <div className="w-full flex justify-center sm:justify-start sm:w-auto">
-                <Tabs value={dailyVaseOrientation} onValueChange={(value) => setDailyVaseOrientation(value as any)}>
-                    <TabsList>
-                        <TabsTrigger value="vertical">Вертикально</TabsTrigger>
-                        <TabsTrigger value="horizontal">Горизонтально</TabsTrigger>
-                    </TabsList>
-                </Tabs>
+             <div className="flex justify-center">
+                <Button 
+                  variant="outline"
+                  onClick={() => setDailyVaseOrientation(prev => prev === 'vertical' ? 'horizontal' : 'vertical')}
+                  >
+                    {dailyVaseOrientation === 'vertical' ? <BarChartHorizontal className="mr-2 h-4 w-4" /> : <BarChart2 className="mr-2 h-4 w-4" />}
+                    <span>{dailyVaseOrientation === 'vertical' ? 'Горизонтально' : 'Вертикально'}</span>
+                </Button>
             </div>
         </div>
       </CardHeader>
@@ -967,6 +934,27 @@ const dailyVaseExpenseChart = (
                                         setActiveTooltip({
                                             category: 'Денний бюджет',
                                             amount: dailyBudget,
+                                            top: e.clientY - rect.top,
+                                            left: e.clientX - rect.left,
+                                        });
+                                    }
+                                }}
+                                />
+                            )}
+                         </div>
+                         <div className="absolute inset-0 flex justify-center">
+                            {averageDailyExpense > 0 && (
+                                <div
+                                className="h-full bg-blue-500/20"
+                                style={{
+                                    width: `${Math.min(100, (averageDailyExpense / maxDailyValue) * 100)}%`,
+                                }}
+                                onMouseMove={(e) => {
+                                    const rect = chartContainerRef.current?.getBoundingClientRect();
+                                    if (rect) {
+                                        setActiveTooltip({
+                                            category: 'Середні денні витрати',
+                                            amount: averageDailyExpense,
                                             top: e.clientY - rect.top,
                                             left: e.clientX - rect.left,
                                         });
@@ -1082,6 +1070,23 @@ const dailyVaseExpenseChart = (
                                     setActiveTooltip({
                                         category: 'Денний бюджет',
                                         amount: dailyBudget,
+                                        top: e.clientY - rect.top,
+                                        left: e.clientX - rect.left,
+                                    });
+                                }}
+                             />
+                        )}
+                        {averageDailyExpense > 0 && (
+                             <div className="absolute left-0 right-0 z-0 bg-blue-500/20"
+                                style={{ 
+                                    height: `${Math.min(100, (averageDailyExpense / maxDailyValue) * 100)}%`,
+                                    bottom: 0
+                                }}
+                                 onMouseMove={(e) => {
+                                    const rect = e.currentTarget.getBoundingClientRect();
+                                    setActiveTooltip({
+                                        category: 'Середні денні витрати',
+                                        amount: averageDailyExpense,
                                         top: e.clientY - rect.top,
                                         left: e.clientX - rect.left,
                                     });
