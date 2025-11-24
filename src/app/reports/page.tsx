@@ -175,61 +175,60 @@ export default function ReportsPage() {
 
   const incomeVsExpenseData = useMemo(() => {
     if (isLoading || filteredTransactions.length === 0 || !familyMember) return [];
-
+  
     let startDate: Date | null = null;
     let endDate: Date | null = null;
-    
+  
     switch (period) {
-        case '0':
-            startDate = startOfMonth(new Date());
-            endDate = endOfMonth(new Date());
-            break;
-        case 'prev_month':
-            const prevMonth = subMonths(new Date(), 1);
-            startDate = startOfMonth(prevMonth);
-            endDate = endOfMonth(prevMonth);
-            break;
-        case 'last_3_months':
-            startDate = startOfMonth(subMonths(new Date(), 2));
-            endDate = endOfMonth(new Date());
-            break;
-        case 'last_6_months':
-            startDate = startOfMonth(subMonths(new Date(), 5));
-            endDate = endOfMonth(new Date());
-            break;
-        case 'last_12_months':
-            startDate = startOfMonth(subMonths(new Date(), 11));
-            endDate = endOfMonth(new Date());
-            break;
-        case 'all':
-            if (earliestTransactionDate) {
-              startDate = earliestTransactionDate;
-              endDate = endOfMonth(new Date());
-            }
-            break;
-        default:
-            startDate = startOfMonth(new Date());
-            endDate = endOfMonth(new Date());
+      case '0':
+        startDate = startOfMonth(new Date());
+        endDate = endOfMonth(new Date());
+        break;
+      case 'prev_month':
+        const prevMonth = subMonths(new Date(), 1);
+        startDate = startOfMonth(prevMonth);
+        endDate = endOfMonth(prevMonth);
+        break;
+      case 'last_3_months':
+        startDate = startOfMonth(subMonths(new Date(), 2));
+        endDate = endOfMonth(new Date());
+        break;
+      case 'last_6_months':
+        startDate = startOfMonth(subMonths(new Date(), 5));
+        endDate = endOfMonth(new Date());
+        break;
+      case 'last_12_months':
+        startDate = startOfMonth(subMonths(new Date(), 11));
+        endDate = endOfMonth(new Date());
+        break;
+      case 'all':
+        if (earliestTransactionDate) {
+          startDate = earliestTransactionDate;
+          endDate = endOfMonth(new Date());
+        }
+        break;
+      default:
+        startDate = startOfMonth(new Date());
+        endDate = endOfMonth(new Date());
     }
-
+  
     const transactionsInPeriod = filteredTransactions.filter(t => {
-        if (!startDate || !endDate) return true;
-        const transactionDate = t.date instanceof Timestamp ? t.date.toDate() : new Date(t.date);
-        return transactionDate >= startDate && transactionDate <= endDate;
+      if (!startDate || !endDate) return true;
+      const transactionDate = t.date instanceof Timestamp ? t.date.toDate() : new Date(t.date);
+      return transactionDate >= startDate && transactionDate <= endDate;
     });
-    
+  
     const totalIncome = transactionsInPeriod
-        .filter(t => t.type === 'income')
-        .reduce((sum, t) => sum + t.amount, 0);
-
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+  
     const totalExpenses = transactionsInPeriod
-        .filter(t => t.type === 'expense' || t.type === 'credit_purchase')
-        .reduce((sum, t) => sum + t.amount, 0);
-    
+      .filter(t => t.type === 'expense' || t.type === 'credit_purchase')
+      .reduce((sum, t) => sum + t.amount, 0);
+  
     const creditLimit = familyMember.creditLimit || 0;
     const netIncome = totalIncome - creditLimit;
-
-
+  
     return [{
       name: 'Дохід',
       netIncome: netIncome < 0 ? 0 : netIncome,
