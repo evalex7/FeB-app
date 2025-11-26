@@ -11,8 +11,6 @@ import { setDocumentNonBlocking } from '@/firebase/non-blocking-updates';
 import type { FamilyMember } from '@/lib/types';
 import { Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { errorEmitter } from '@/firebase/error-emitter';
-import { FirestorePermissionError } from '@/firebase/errors';
 
 const profileColors = [
     'hsl(221, 83%, 53%)', // Blue
@@ -46,7 +44,6 @@ export default function SettingsForm() {
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
     const [color, setColor] = useState('');
-    const [creditLimit, setCreditLimit] = useState('');
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
@@ -54,11 +51,10 @@ export default function SettingsForm() {
             setName(familyMember.name);
             setEmail(familyMember.email);
             setColor(familyMember.color);
-            setCreditLimit(String(familyMember.creditLimit || ''));
         }
     }, [familyMember]);
 
-    const handleSave = (field: 'name' | 'color' | 'creditLimit', value: string | number) => {
+    const handleSave = (field: 'name' | 'color', value: string) => {
         if (!user || !firestore) return;
 
         setIsSaving(true);
@@ -67,21 +63,15 @@ export default function SettingsForm() {
         const userRef = doc(firestore, 'users', user.uid);
         setDocumentNonBlocking(userRef, updatedData, { merge: true })
             .then(() => {
-                toast({
-                    title: 'Успіх!',
-                    description: 'Ваші дані було оновлено.',
-                });
+                if (field === 'name') {
+                    toast({
+                        title: 'Успіх!',
+                        description: 'Ваше ім\'я було оновлено.',
+                    });
+                }
             })
             .catch(error => {
                 console.error("Error updating profile: ", error);
-                 errorEmitter.emit(
-                    'permission-error',
-                    new FirestorePermissionError({
-                        path: userRef.path,
-                        operation: 'update',
-                        requestResourceData: updatedData
-                    })
-                );
                 toast({
                     variant: 'destructive',
                     title: 'Помилка',
@@ -93,10 +83,9 @@ export default function SettingsForm() {
             });
     }
 
-    const handleFormSubmit = (e: React.FormEvent) => {
+    const handleNameSubmit = (e: React.FormEvent) => {
         e.preventDefault();
         handleSave('name', name);
-        handleSave('creditLimit', parseFloat(creditLimit) || 0);
     };
 
     const handleColorSelect = (newColor: string) => {
@@ -113,24 +102,20 @@ export default function SettingsForm() {
     }
 
     return (
-        <form onSubmit={handleFormSubmit} className="space-y-6 max-w-lg">
-            <div className="grid gap-2">
-                <Label htmlFor="name">Повне ім'я</Label>
-                <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
-            </div>
+        <div className="space-y-6 max-w-lg">
+            <form onSubmit={handleNameSubmit} className="space-y-4">
+                <div className="grid gap-2">
+                    <Label htmlFor="name">Повне ім'я</Label>
+                    <Input id="name" value={name} onChange={(e) => setName(e.target.value)} required />
+                </div>
+                <Button type="submit" disabled={isSaving || name === familyMember?.name} size="sm" className="w-full">
+                    {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                    Зберегти ім'я
+                </Button>
+            </form>
             <div className="grid gap-2">
                 <Label htmlFor="email">Електронна пошта</Label>
                 <Input id="email" type="email" value={email} disabled />
-            </div>
-             <div className="grid gap-2">
-                <Label htmlFor="creditLimit">Кредитний ліміт</Label>
-                <Input 
-                    id="creditLimit" 
-                    type="number"
-                    placeholder="0.00"
-                    value={creditLimit} 
-                    onChange={(e) => setCreditLimit(e.target.value)} 
-                />
             </div>
              <div className="grid gap-2">
                 <Label>Колір аватара</Label>
@@ -149,10 +134,6 @@ export default function SettingsForm() {
                     ))}
                 </div>
              </div>
-             <Button type="submit" disabled={isSaving} size="sm" className="w-full">
-                {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Зберегти
-            </Button>
-        </form>
+        </div>
     );
 }
