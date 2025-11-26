@@ -54,10 +54,6 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import { useSettings } from '@/contexts/settings-context';
 import { FileWarning, PieChart as PieChartIcon, BarChartBig, BarChartHorizontal, BarChart2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { useUser, useDoc, useMemoFirebase, useFirestore } from '@/firebase';
-import { doc } from 'firebase/firestore';
-import type { FamilyMember } from '@/lib/types';
-
 
 const formatCurrency = (amount: number) => {
   if (amount >= 1000) {
@@ -76,8 +72,8 @@ const formatCurrencyTooltip = (amount: number) => {
 };
 
 const barChartConfig = {
-  netIncome: { label: 'Чистий дохід', color: 'hsl(var(--chart-2))' },
-  creditLimit: { label: 'Кредитний ліміт', color: 'hsl(27, 87%, 67%)' },
+  income: { label: 'Чистий дохід', color: 'hsl(var(--chart-2))' },
+  credit: { label: 'Кредит', color: 'hsl(27, 87%, 67%)' },
   expenses: { label: 'Витрати', color: 'hsl(var(--chart-1))' },
   value: { label: 'Сума' },
 } satisfies ChartConfig;
@@ -117,11 +113,9 @@ type CustomTooltipPayload = {
 export default function ReportsPage() {
   const { transactions, isLoading: isTransactionsLoading } = useTransactions();
   const { categories, isLoading: isCategoriesLoading } = useCategories();
-  const { user, isUserLoading } = useUser();
   const { chartSettings } = useSettings();
   const isMobile = useIsMobile();
   const chartContainerRef = useRef<HTMLDivElement>(null);
-  const firestore = useFirestore();
 
   const [period, setPeriod] = useState('0');
   const [categoryPeriod, setCategoryPeriod] = useState('0');
@@ -135,14 +129,7 @@ export default function ReportsPage() {
   const [periodOptions, setPeriodOptions] = useState<{value: string, label: string}[]>([]);
   const [earliestTransactionDate, setEarliestTransactionDate] = useState<Date | null>(null);
 
-  const userDocRef = useMemoFirebase(() => {
-    if (!firestore || !user) return null;
-    return doc(firestore, 'users', user.uid);
-  }, [firestore, user]);
-
-  const { data: familyMember, isLoading: isMemberLoading } = useDoc<FamilyMember>(userDocRef);
-
-  const isLoading = isTransactionsLoading || isCategoriesLoading || isUserLoading || isMemberLoading;
+  const isLoading = isTransactionsLoading || isCategoriesLoading;
 
   useEffect(() => {
     if (transactions.length > 0) {
@@ -174,71 +161,75 @@ export default function ReportsPage() {
   const filteredTransactions = transactions;
 
   const incomeVsExpenseData = useMemo(() => {
-    if (isLoading || filteredTransactions.length === 0 || !familyMember) return [];
-  
+    if (isLoading || filteredTransactions.length === 0) return [];
+
     let startDate: Date | null = null;
     let endDate: Date | null = null;
-  
+    
     switch (period) {
-      case '0':
-        startDate = startOfMonth(new Date());
-        endDate = endOfMonth(new Date());
-        break;
-      case 'prev_month':
-        const prevMonth = subMonths(new Date(), 1);
-        startDate = startOfMonth(prevMonth);
-        endDate = endOfMonth(prevMonth);
-        break;
-      case 'last_3_months':
-        startDate = startOfMonth(subMonths(new Date(), 2));
-        endDate = endOfMonth(new Date());
-        break;
-      case 'last_6_months':
-        startDate = startOfMonth(subMonths(new Date(), 5));
-        endDate = endOfMonth(new Date());
-        break;
-      case 'last_12_months':
-        startDate = startOfMonth(subMonths(new Date(), 11));
-        endDate = endOfMonth(new Date());
-        break;
-      case 'all':
-        if (earliestTransactionDate) {
-          startDate = earliestTransactionDate;
-          endDate = endOfMonth(new Date());
-        }
-        break;
-      default:
-        startDate = startOfMonth(new Date());
-        endDate = endOfMonth(new Date());
+        case '0':
+            startDate = startOfMonth(new Date());
+            endDate = endOfMonth(new Date());
+            break;
+        case 'prev_month':
+            const prevMonth = subMonths(new Date(), 1);
+            startDate = startOfMonth(prevMonth);
+            endDate = endOfMonth(prevMonth);
+            break;
+        case 'last_3_months':
+            startDate = startOfMonth(subMonths(new Date(), 2));
+            endDate = endOfMonth(new Date());
+            break;
+        case 'last_6_months':
+            startDate = startOfMonth(subMonths(new Date(), 5));
+            endDate = endOfMonth(new Date());
+            break;
+        case 'last_12_months':
+            startDate = startOfMonth(subMonths(new Date(), 11));
+            endDate = endOfMonth(new Date());
+            break;
+        case 'all':
+            if (earliestTransactionDate) {
+              startDate = earliestTransactionDate;
+              endDate = endOfMonth(new Date());
+            }
+            break;
+        default:
+            startDate = startOfMonth(new Date());
+            endDate = endOfMonth(new Date());
     }
-  
+
     const transactionsInPeriod = filteredTransactions.filter(t => {
-      if (!startDate || !endDate) return true;
-      const transactionDate = t.date instanceof Timestamp ? t.date.toDate() : new Date(t.date);
-      return transactionDate >= startDate && transactionDate <= endDate;
+        if (!startDate || !endDate) return true; // 'all' might not have dates if no transactions exist
+        const transactionDate = t.date instanceof Timestamp ? t.date.toDate() : new Date(t.date);
+        return transactionDate >= startDate && transactionDate <= endDate;
     });
-  
+
     const totalIncome = transactionsInPeriod
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
-  
-    const totalExpenses = transactionsInPeriod
-      .filter(t => t.type === 'expense' || t.type === 'credit_purchase')
-      .reduce((sum, t) => sum + t.amount, 0);
-  
-    const creditLimit = familyMember.creditLimit || 0;
-    const netIncome = totalIncome - creditLimit;
-  
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0);
+    
+    const credit = transactionsInPeriod
+        .filter(t => t.type === 'credit_purchase')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+    const expenses = transactionsInPeriod
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + t.amount, 0);
+    
+    const income = totalIncome - credit;
+
     return [{
       name: 'Дохід',
-      netIncome: netIncome < 0 ? 0 : netIncome,
-      creditLimit: creditLimit,
+      income: income < 0 ? 0 : income,
+      credit: credit,
       totalIncome: totalIncome,
     }, {
       name: 'Витрати',
-      expenses: totalExpenses,
+      expenses: expenses,
     }];
-  }, [filteredTransactions, period, isLoading, earliestTransactionDate, familyMember]);
+
+  }, [filteredTransactions, period, isLoading, earliestTransactionDate]);
 
   
   const { data: categoryData, config: pieChartConfig } = useMemo(() => {
@@ -268,7 +259,7 @@ export default function ReportsPage() {
     const dataMap: { [key: string]: number } = {};
     filteredTransactions
       .filter((t) => {
-        if (t.type !== 'expense' && t.type !== 'credit_purchase') return false;
+        if (t.type !== 'expense') return false;
         if (startDate && endDate) {
              const transactionDate = t.date && (t.date as Timestamp).toDate ? (t.date as Timestamp).toDate() : new Date(t.date);
              return transactionDate >= startDate && transactionDate <= endDate;
@@ -326,7 +317,7 @@ export default function ReportsPage() {
       }
       if (t.type === 'income') {
         dailyTotals[dayKey].income += t.amount;
-      } else if (t.type === 'expense' || t.type === 'credit_purchase') {
+      } else if (t.type === 'expense') {
         dailyTotals[dayKey].expenses += t.amount;
       }
     });
@@ -398,7 +389,7 @@ const { data: categoryTrendData, config: categoryTrendConfig, categories: catego
     });
   
     filteredTransactions.forEach(t => {
-        if (t.type === 'expense' || t.type === 'credit_purchase') {
+        if (t.type === 'expense') {
             const transactionDate = t.date instanceof Timestamp ? t.date.toDate() : new Date(t.date);
             if (transactionDate >= startDate && transactionDate <= endDate) {
                 const monthKey = format(transactionDate, 'yyyy-MM');
@@ -454,7 +445,7 @@ const { dailyVaseData, dailyVaseConfig, dailyBudget, averageDailyExpense, maxDai
         .reduce((sum, t) => sum + t.amount, 0);
     
     const totalExpensesThisMonth = transactionsThisMonth
-        .filter(t => t.type === 'expense' || t.type === 'credit_purchase')
+        .filter(t => t.type === 'expense')
         .reduce((sum, t) => sum + t.amount, 0);
     
     const dailyBudget = totalIncomeThisMonth > 0 ? totalIncomeThisMonth / numDaysInMonth : 0;
@@ -480,7 +471,7 @@ const { dailyVaseData, dailyVaseConfig, dailyBudget, averageDailyExpense, maxDai
         const expensesForDay = transactions
             .filter(t => {
                 const transactionDate = t.date instanceof Timestamp ? t.date.toDate() : new Date(t.date);
-                return (t.type === 'expense' || t.type === 'credit_purchase') && startOfDay(transactionDate).getTime() === startOfDay(day).getTime();
+                return t.type === 'expense' && startOfDay(transactionDate).getTime() === startOfDay(day).getTime();
             });
 
         const dailyExpensesByCategory = expensesForDay.reduce((acc, t) => {
@@ -545,7 +536,9 @@ const { dailyVaseData, dailyVaseConfig, dailyBudget, averageDailyExpense, maxDai
           <ResponsiveContainer width="100%" height="100%">
             <BarChart 
                 data={incomeVsExpenseData} 
-                margin={{ top: 20, right: 30, bottom: 20, left: 30 }}
+                margin={{ left: 0, right: 16 }}
+                barGap={-20}
+                barCategoryGap="5%"
             >
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} fontSize={12} interval={0} />
@@ -561,18 +554,18 @@ const { dailyVaseData, dailyVaseConfig, dailyBudget, averageDailyExpense, maxDai
                                     <div className="grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
                                         <p className="font-medium">Загальний дохід: {formatCurrencyTooltip(data.totalIncome)}</p>
                                         <div className="flex items-center gap-2">
-                                            <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: barChartConfig.netIncome.color }}/>
+                                            <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: barChartConfig.income.color }}/>
                                             <div className="flex flex-1 justify-between">
-                                                <span className="text-muted-foreground">{barChartConfig.netIncome.label}</span>
-                                                <span className="font-medium">{formatCurrencyTooltip(data.netIncome)}</span>
+                                                <span className="text-muted-foreground">{barChartConfig.income.label}</span>
+                                                <span className="font-medium">{formatCurrencyTooltip(data.income)}</span>
                                             </div>
                                         </div>
-                                        {data.creditLimit > 0 && (
+                                        {data.credit > 0 && (
                                             <div className="flex items-center gap-2">
-                                                <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: barChartConfig.creditLimit.color }}/>
+                                                <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: barChartConfig.credit.color }}/>
                                                 <div className="flex flex-1 justify-between">
-                                                    <span className="text-muted-foreground">{barChartConfig.creditLimit.label}</span>
-                                                    <span className="font-medium">{formatCurrencyTooltip(data.creditLimit)}</span>
+                                                    <span className="text-muted-foreground">{barChartConfig.credit.label}</span>
+                                                    <span className="font-medium">{formatCurrencyTooltip(data.credit)}</span>
                                                 </div>
                                             </div>
                                         )}
@@ -598,8 +591,8 @@ const { dailyVaseData, dailyVaseConfig, dailyBudget, averageDailyExpense, maxDai
                         return null;
                     }}
                 />
-                <Bar dataKey="netIncome" fill="var(--color-netIncome)" stackId="a" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="creditLimit" fill="var(--color-creditLimit)" stackId="a" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="income" fill="var(--color-income)" stackId="a" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="credit" fill="var(--color-credit)" stackId="a" radius={[4, 4, 0, 0]} />
                 <Bar dataKey="expenses" fill="var(--color-expenses)" radius={[4, 4, 0, 0]} />
                 <ChartLegend content={<ChartLegendContent />} />
             </BarChart>
@@ -703,7 +696,7 @@ const { dailyVaseData, dailyVaseConfig, dailyBudget, averageDailyExpense, maxDai
                   <Cell key={`cell-${entry.name}`} fill={pieChartConfig[entry.name]?.color} />
                 ))}
                 </Pie>
-                <ChartLegend content={<ChartLegendContent nameKey="name" className="flex-wrap justify-center" />} />
+                <ChartLegend content={<ChartLegendContent nameKey="name" className="flex flex-wrap justify-center" />} />
               </PieChart>
             </ResponsiveContainer>
           </ChartContainer>
@@ -724,6 +717,7 @@ const { dailyVaseData, dailyVaseConfig, dailyBudget, averageDailyExpense, maxDai
                             tickMargin={10}
                             width={120}
                             fontSize={12}
+                            interval={0}
                         />
                         <ChartTooltip
                             cursor={false}
@@ -1084,7 +1078,7 @@ const dailyVaseExpenseChart = (
                 </div>
             ) : (
               <ScrollArea className="w-full whitespace-nowrap">
-                <div className="flex flex-col h-[400px] w-max pr-4">
+                <div className="flex flex-col w-max pr-4 h-[400px]">
                     <div className="flex-grow relative flex items-end">
                         {[...dailyVaseData].sort((a,b) => a.date.getTime() - b.date.getTime()).map((dayData, dayIndex) => (
                             <div key={dayData.date.toISOString()} className="flex-1 h-full flex flex-col-reverse items-center px-px min-w-[20px]">
