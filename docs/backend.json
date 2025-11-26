@@ -1,0 +1,349 @@
+{
+  "entities": {
+    "Todo": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Todo",
+      "type": "object",
+      "description": "Represents a single task or reminder.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the todo."
+        },
+        "title": {
+          "type": "string",
+          "description": "The content of the task."
+        },
+        "completed": {
+          "type": "boolean",
+          "description": "Whether the task is completed."
+        },
+        "dueDate": {
+          "type": ["string", "null"],
+          "format": "date-time",
+          "description": "Optional due date for the task."
+        },
+        "familyMemberId": {
+          "type": "string",
+          "description": "The UID of the family member who created the task."
+        }
+      },
+      "required": [
+        "id",
+        "title",
+        "completed",
+        "familyMemberId"
+      ]
+    },
+    "FamilyMember": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "FamilyMember",
+      "type": "object",
+      "description": "Represents a member of the family using the application.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the family member."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the family member."
+        },
+        "email": {
+          "type": "string",
+          "description": "Email address of the family member.",
+          "format": "email"
+        },
+        "color": {
+          "type": "string",
+          "description": "Color associated with the family member for UI representation."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "email",
+        "color"
+      ]
+    },
+    "Expense": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Expense",
+      "type": "object",
+      "description": "Represents an expense recorded by a family member.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the expense."
+        },
+        "familyMemberId": {
+          "type": "string",
+          "description": "The UID of the family member who recorded the expense."
+        },
+        "categoryId": {
+          "type": "string",
+          "description": "Reference to Category. (Relationship: Category 1:N Expense) The category of the expense."
+        },
+        "date": {
+          "type": "string",
+          "description": "The date the expense was incurred.",
+          "format": "date-time"
+        },
+        "amount": {
+          "type": "number",
+          "description": "The amount of the expense."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the expense."
+        },
+        "isPrivate": {
+          "type": "boolean",
+          "description": "If true, the expense is only visible to the owner."
+        }
+      },
+      "required": [
+        "id",
+        "familyMemberId",
+        "categoryId",
+        "date",
+        "amount"
+      ]
+    },
+    "Category": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Category",
+      "type": "object",
+      "description": "Represents a category for expenses (e.g., Groceries, Transportation).",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the category."
+        },
+        "name": {
+          "type": "string",
+          "description": "The name of the category."
+        },
+        "familyMemberId": {
+          "type": "string",
+          "description": "The UID of the family member who created the category."
+        },
+        "isCommon": {
+          "type": "boolean",
+          "description": "Indicates if the category is common to all family members or specific to one."
+        },
+        "isPrivate": {
+          "type": "boolean",
+          "description": "If true, this category and its expenses are only visible to the owner."
+        }
+      },
+      "required": [
+        "id",
+        "name",
+        "familyMemberId"
+      ]
+    },
+    "Budget": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "Budget",
+      "type": "object",
+      "description": "Represents a budget set for a specific category over a period.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the budget."
+        },
+        "familyMemberId": {
+          "type": "string",
+          "description": "The UID of the family member who set the budget."
+        },
+        "categoryId": {
+          "type": "string",
+          "description": "Reference to Category. (Relationship: Category 1:1 Budget)"
+        },
+        "amount": {
+          "type": "number",
+          "description": "The budget amount for the category in the specified period."
+        },
+        "period": {
+          "type": "string",
+          "description": "The period for the budget.",
+          "enum": ["monthly", "quarterly", "yearly"]
+        },
+        "startDate": {
+          "type": "string",
+          "description": "The start date of the budget period.",
+          "format": "date-time"
+        },
+        "endDate": {
+          "type": "string",
+          "description": "The end date of the budget period.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "familyMemberId",
+        "categoryId",
+        "amount",
+        "period",
+        "startDate",
+        "endDate"
+      ]
+    },
+    "RecurringPayment": {
+      "$schema": "http://json-schema.org/draft-07/schema#",
+      "title": "RecurringPayment",
+      "type": "object",
+      "description": "Represents a recurring payment or subscription.",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the recurring payment."
+        },
+        "familyMemberId": {
+          "type": "string",
+          "description": "The UID of the family member who created the payment."
+        },
+        "description": {
+          "type": "string",
+          "description": "A description of the payment (e.g., Netflix Subscription)."
+        },
+        "amount": {
+          "type": "number",
+          "description": "The amount of the payment."
+        },
+        "category": {
+          "type": "string",
+          "description": "The category of the payment."
+        },
+        "frequency": {
+          "type": "string",
+          "description": "How often the payment occurs.",
+          "enum": ["monthly", "quarterly", "yearly"]
+        },
+        "nextDueDate": {
+          "type": "string",
+          "description": "The next date the payment is due.",
+          "format": "date-time"
+        }
+      },
+      "required": [
+        "id",
+        "familyMemberId",
+        "description",
+        "amount",
+        "category",
+        "frequency",
+        "nextDueDate"
+      ]
+    }
+  },
+  "auth": {
+    "providers": [
+      "password",
+      "anonymous"
+    ]
+  },
+  "firestore": {
+    "structure": [
+      {
+        "path": "/users/{userId}",
+        "definition": {
+          "entityName": "FamilyMember",
+          "schema": {
+            "$ref": "#/backend/entities/FamilyMember"
+          },
+          "description": "Stores user profiles. The 'userId' is the Firebase Auth UID.",
+          "params": [
+            {
+              "name": "userId",
+              "description": "The Firebase Auth UID of the user."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/categories/{categoryId}",
+        "definition": {
+          "entityName": "Category",
+          "schema": {
+            "$ref": "#/backend/entities/Category"
+          },
+          "description": "Stores all expense categories. The 'familyMemberId' field indicates the owner.",
+          "params": [
+            {
+              "name": "categoryId",
+              "description": "The unique ID of the category."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/expenses/{expenseId}",
+        "definition": {
+          "entityName": "Expense",
+          "schema": {
+            "$ref": "#/backend/entities/Expense"
+          },
+          "description": "Stores all expenses. The 'familyMemberId' field indicates the owner.",
+          "params": [
+            {
+              "name": "expenseId",
+              "description": "The unique ID of the expense."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/budgets/{budgetId}",
+        "definition": {
+          "entityName": "Budget",
+          "schema": {
+            "$ref": "#/backend/entities/Budget"
+          },
+          "description": "Stores all budgets. The 'familyMemberId' field indicates the owner.",
+          "params": [
+            {
+              "name": "budgetId",
+              "description": "The unique ID of the budget."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/payments/{paymentId}",
+        "definition": {
+          "entityName": "RecurringPayment",
+          "schema": {
+            "$ref": "#/backend/entities/RecurringPayment"
+          },
+          "description": "Stores all recurring payments. The 'familyMemberId' field indicates the owner.",
+          "params": [
+            {
+              "name": "paymentId",
+              "description": "The unique ID of the recurring payment."
+            }
+          ]
+        }
+      },
+      {
+        "path": "/todos/{todoId}",
+        "definition": {
+          "entityName": "Todo",
+          "schema": {
+            "$ref": "#/backend/entities/Todo"
+          },
+          "description": "Stores all todo items. The 'familyMemberId' field indicates the owner.",
+          "params": [
+            {
+              "name": "todoId",
+              "description": "The unique ID of the todo item."
+            }
+          ]
+        }
+      }
+    ],
+    "reasoning": "The Firestore structure is now centralized to allow data sharing among all users. Collections like 'expenses', 'categories', and 'budgets' are at the root level. Data access is controlled by security rules: all authenticated users can read data, but only the document's owner (matched via the 'familyMemberId' field) can write, update, or delete it. This ensures data visibility for the whole family while maintaining individual ownership of records."
+  }
+}
