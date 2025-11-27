@@ -1,6 +1,6 @@
 {
   "name": "Сімейні фінанси",
-  "short_name": "Фінанси",
+  "short_name": "FiBi",
   "description": "Простий спосіб керувати сімейним бюджетом.",
   "start_url": "/",
   "display": "standalone",
