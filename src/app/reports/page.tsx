@@ -73,8 +73,9 @@ const formatCurrencyTooltip = (amount: number) => {
 
 const barChartConfig = {
   income: { label: 'Чистий дохід', color: 'hsl(var(--chart-2))' },
-  credit: { label: 'Кредит', color: 'hsl(27, 87%, 67%)' },
+  credit: { label: 'Кредит', color: 'hsl(var(--chart-5))' },
   expenses: { label: 'Витрати', color: 'hsl(var(--chart-1))' },
+  totalIncome: { label: 'Загальний дохід' },
   value: { label: 'Сума' },
 } satisfies ChartConfig;
 
@@ -205,7 +206,7 @@ export default function ReportsPage() {
         return transactionDate >= startDate && transactionDate <= endDate;
     });
 
-    const totalIncome = transactionsInPeriod
+    const income = transactionsInPeriod
         .filter(t => t.type === 'income')
         .reduce((sum, t) => sum + t.amount, 0);
     
@@ -216,14 +217,12 @@ export default function ReportsPage() {
     const expenses = transactionsInPeriod
         .filter(t => t.type === 'expense')
         .reduce((sum, t) => sum + t.amount, 0);
-    
-    const income = totalIncome - credit;
 
     return [{
       name: 'Дохід',
-      income: income < 0 ? 0 : income,
+      income: income,
       credit: credit,
-      totalIncome: totalIncome,
+      totalIncome: income + credit,
     }, {
       name: 'Витрати',
       expenses: expenses,
@@ -259,7 +258,7 @@ export default function ReportsPage() {
     const dataMap: { [key: string]: number } = {};
     filteredTransactions
       .filter((t) => {
-        if (t.type !== 'expense') return false;
+        if (t.type !== 'expense' && t.type !== 'credit_purchase') return false;
         if (startDate && endDate) {
              const transactionDate = t.date && (t.date as Timestamp).toDate ? (t.date as Timestamp).toDate() : new Date(t.date);
              return transactionDate >= startDate && transactionDate <= endDate;
@@ -317,7 +316,7 @@ export default function ReportsPage() {
       }
       if (t.type === 'income') {
         dailyTotals[dayKey].income += t.amount;
-      } else if (t.type === 'expense') {
+      } else if (t.type === 'expense' || t.type === 'credit_purchase') {
         dailyTotals[dayKey].expenses += t.amount;
       }
     });
@@ -389,7 +388,7 @@ const { data: categoryTrendData, config: categoryTrendConfig, categories: catego
     });
   
     filteredTransactions.forEach(t => {
-        if (t.type === 'expense') {
+        if (t.type === 'expense' || t.type === 'credit_purchase') {
             const transactionDate = t.date instanceof Timestamp ? t.date.toDate() : new Date(t.date);
             if (transactionDate >= startDate && transactionDate <= endDate) {
                 const monthKey = format(transactionDate, 'yyyy-MM');
@@ -445,8 +444,8 @@ const { dailyVaseData, dailyVaseConfig, dailyBudget, averageDailyExpense, maxDai
         .reduce((sum, t) => sum + t.amount, 0);
     
     const totalExpensesThisMonth = transactionsThisMonth
-        .filter(t => t.type === 'expense')
-        .reduce((sum, t) => sum + t.amount, 0);
+      .filter(t => t.type === 'expense' || t.type === 'credit_purchase')
+      .reduce((sum, t) => sum + t.amount, 0);
     
     const dailyBudget = totalIncomeThisMonth > 0 ? totalIncomeThisMonth / numDaysInMonth : 0;
     const averageDailyExpense = totalExpensesThisMonth > 0 && currentDayOfMonth > 0 ? totalExpensesThisMonth / currentDayOfMonth : 0;
@@ -471,7 +470,7 @@ const { dailyVaseData, dailyVaseConfig, dailyBudget, averageDailyExpense, maxDai
         const expensesForDay = transactions
             .filter(t => {
                 const transactionDate = t.date instanceof Timestamp ? t.date.toDate() : new Date(t.date);
-                return t.type === 'expense' && startOfDay(transactionDate).getTime() === startOfDay(day).getTime();
+                return (t.type === 'expense' || t.type === 'credit_purchase') && startOfDay(transactionDate).getTime() === startOfDay(day).getTime();
             });
 
         const dailyExpensesByCategory = expensesForDay.reduce((acc, t) => {
@@ -537,8 +536,7 @@ const { dailyVaseData, dailyVaseConfig, dailyBudget, averageDailyExpense, maxDai
             <BarChart 
                 data={incomeVsExpenseData} 
                 margin={{ left: 0, right: 16 }}
-                barGap={-20}
-                barCategoryGap="5%"
+                barCategoryGap="25%"
             >
                 <CartesianGrid vertical={false} />
                 <XAxis dataKey="name" tickLine={false} axisLine={false} tickMargin={8} fontSize={12} interval={0} />
@@ -546,55 +544,48 @@ const { dailyVaseData, dailyVaseConfig, dailyBudget, averageDailyExpense, maxDai
                 <ChartTooltip
                     cursor={false}
                     content={({ active, payload, label }) => {
-                        if (active && payload?.length) {
-                            const data = payload[0].payload;
-                            
-                            if (label === 'Дохід') {
-                                return (
-                                    <div className="grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
-                                        <p className="font-medium">Загальний дохід: {formatCurrencyTooltip(data.totalIncome)}</p>
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: barChartConfig.income.color }}/>
-                                            <div className="flex flex-1 justify-between">
-                                                <span className="text-muted-foreground">{barChartConfig.income.label}</span>
-                                                <span className="font-medium">{formatCurrencyTooltip(data.income)}</span>
-                                            </div>
-                                        </div>
-                                        {data.credit > 0 && (
-                                            <div className="flex items-center gap-2">
-                                                <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: barChartConfig.credit.color }}/>
-                                                <div className="flex flex-1 justify-between">
-                                                    <span className="text-muted-foreground">{barChartConfig.credit.label}</span>
-                                                    <span className="font-medium">{formatCurrencyTooltip(data.credit)}</span>
-                                                </div>
-                                            </div>
-                                        )}
-                                    </div>
-                                );
-                            }
-                            
-                            if (label === 'Витрати') {
-                                return (
-                                     <div className="grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
-                                        <p className="font-medium">{label}</p>
-                                        <div className="flex items-center gap-2">
-                                            <div className="h-2.5 w-2.5 shrink-0 rounded-[2px]" style={{ backgroundColor: barChartConfig.expenses.color }}/>
-                                            <div className="flex flex-1 justify-between">
-                                                <span className="text-muted-foreground">{barChartConfig.expenses.label}</span>
-                                                <span className="font-medium">{formatCurrencyTooltip(data.expenses)}</span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                );
-                            }
+                        if (active && payload && payload.length) {
+                          const data = payload[0].payload;
+                          const chartItems = [];
+
+                          if (data.totalIncome) {
+                            chartItems.push({ name: 'totalIncome', value: data.totalIncome, color: '' });
+                          }
+                          if (data.income) {
+                             chartItems.push({ name: 'income', value: data.income, color: 'var(--color-income)' });
+                          }
+                          if (data.credit) {
+                             chartItems.push({ name: 'credit', value: data.credit, color: 'var(--color-credit)' });
+                          }
+                           if (data.expenses) {
+                             chartItems.push({ name: 'expenses', value: data.expenses, color: 'var(--color-expenses)' });
+                          }
+
+                          return (
+                            <div className="grid min-w-[8rem] items-start gap-1.5 rounded-lg border border-border/50 bg-background px-2.5 py-1.5 text-xs shadow-xl">
+                              <div className="font-bold">{label}</div>
+                              {chartItems.map(item => (
+                                <div key={item.name} className="flex w-full items-center gap-2">
+                                  {item.color && <div className="w-2.5 h-2.5 rounded-sm" style={{backgroundColor: item.color}} />}
+                                  <div className="flex flex-1 justify-between">
+                                    <span className="text-muted-foreground">
+                                      {barChartConfig[item.name as keyof typeof barChartConfig]?.label}
+                                    </span>
+                                    <span className="font-bold">
+                                      {formatCurrencyTooltip(item.value as number)}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          );
                         }
                         return null;
-                    }}
+                      }}
                 />
-                <Bar dataKey="income" fill="var(--color-income)" stackId="a" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="credit" fill="var(--color-credit)" stackId="a" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="expenses" fill="var(--color-expenses)" radius={[4, 4, 0, 0]} />
-                <ChartLegend content={<ChartLegendContent />} />
+                <Bar dataKey="income" stackId="a" fill="var(--color-income)" radius={[4, 4, 0, 0]} barSize={60} />
+                <Bar dataKey="credit" stackId="a" fill="var(--color-credit)" radius={[4, 4, 0, 0]} barSize={60} />
+                <Bar dataKey="expenses" fill="var(--color-expenses)" radius={[4, 4, 0, 0]} barSize={60} />
             </BarChart>
           </ResponsiveContainer>
         </ChartContainer>

@@ -5,7 +5,7 @@ export type Transaction = {
   date: Date | Timestamp;
   description: string;
   amount: number;
-  type: 'income' | 'expense' | 'credit_purchase' | 'credit_payment';
+  type: 'income' | 'expense' | 'credit_purchase' | 'credit_payment' | 'credit_limit';
   category: string;
   familyMemberId?: string;
   isPrivate?: boolean;
@@ -54,3 +54,11 @@ export type CreditSettings = {
     familyMemberId: string;
     creditLimit: number;
 }
+
+export type Todo = {
+  id: string;
+  title: string;
+  completed: boolean;
+  dueDate?: Date | Timestamp | null;
+  familyMemberId?: string;
+};
